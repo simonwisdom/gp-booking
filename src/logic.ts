@@ -84,6 +84,12 @@ export function formatWhen(iso: string): string {
   }).format(new Date(iso))
 }
 
+/** "Mon 9 Nov" for a YYYY-MM-DD day. */
+export function formatDay(day: string): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' })
+    .format(new Date(`${day}T12:00:00Z`))
+}
+
 export type NewRequest = {
   name: string
   phone: string
@@ -91,6 +97,17 @@ export type NewRequest = {
   chestOrBreathing: boolean
   rapidlyWorse: boolean
   availability: DayHalf[]
+}
+
+/** Ticked "day:half" boxes, keeping only real half-days within `allowedDays`. */
+export function parseAvailability(raw: string | string[] | undefined, allowedDays: string[]): DayHalf[] {
+  const picked = Array.isArray(raw) ? raw : raw ? [raw] : []
+  const out: DayHalf[] = []
+  for (const p of picked) {
+    const [day, half] = p.split(':')
+    if (allowedDays.includes(day) && (half === 'am' || half === 'pm')) out.push({ day, half })
+  }
+  return out
 }
 
 /** Validate the patient form. `allowedDays` limits availability to the next 7 days. */
@@ -108,13 +125,7 @@ export function validateRequest(
   if (!reason) errors.push('Please say briefly what the appointment is about.')
   else if (reason.length > 500) errors.push('Please keep the reason to 500 characters or fewer.')
 
-  const raw = form.slot
-  const picked = (Array.isArray(raw) ? raw : raw ? [raw] : [])
-  const availability: DayHalf[] = []
-  for (const p of picked) {
-    const [day, half] = p.split(':')
-    if (allowedDays.includes(day) && (half === 'am' || half === 'pm')) availability.push({ day, half })
-  }
+  const availability = parseAvailability(form.slot, allowedDays)
   if (availability.length === 0) errors.push('Please tick at least one morning or afternoon when you could come in.')
 
   if (errors.length) return { ok: false, errors }
