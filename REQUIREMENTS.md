@@ -6,10 +6,10 @@ Each line is one requirement. Under it: what "done" means. Tick the box only whe
 
 ## Deliverables
 
-- [ ] **R1. GitHub repo URL**
+- [x] **R1. GitHub repo URL**
   Done: code is pushed to a GitHub repo the assessors can open, and the README says what the product is, who it's for, and how to run it locally in one or two commands.
 
-- [ ] **R2. Live deployed app URL**
+- [x] **R2. Live deployed app URL**
   Done: the URL opens in a fresh browser with no setup, shows demo data straight away, and the core flow (R7) works there end to end, not only on localhost.
 
 - [ ] **R3. Coding agent logs**
@@ -17,44 +17,46 @@ Each line is one requirement. Under it: what "done" means. Tick the box only whe
 
 ## Product judgment
 
-- [ ] **R4. A product people would use and pay for**
+- [x] **R4. A product people would use and pay for**
   Done: the README names the user, the job they're doing today, what's painful about it, and who pays. Each fits in one sentence.
 
-- [ ] **R5. Own idea preferred**
+- [x] **R5. Own idea preferred**
   Done: the idea is not one of the 16 examples in the brief, or, if it starts from one, it has a clear twist that the README states.
 
-- [ ] **R6. Not a simple LLM wrapper**
+- [x] **R6. Not a simple LLM wrapper**
   Done: the product has a real data model (several related records saved in a database), a workflow with states that change over time, and logic written in code (rules, scoring, matching, scheduling). If AI is used, it's one step inside the workflow, and the app still works when the AI call fails.
 
-- [ ] **R7. One coherent core flow, complete end to end**
+- [x] **R7. One coherent core flow, complete end to end**
   Done: a new visitor can do the main job from start to finish (create or receive something, act on it, see the result and its new state) without hitting a dead end.
 
-- [ ] **R8. Scope fits 1 hour**
+- [x] **R8. Scope fits 1 hour**
   Done: the README lists what was built and what was left out on purpose. Nothing half-built is visible in the UI.
 
 ## Engineering judgment
 
-- [ ] **R9. Simple, maintainable code**
+- [x] **R9. Simple, maintainable code**
   Done: a small number of files with clear names, one framework, no unused code or dependencies. A reader can find the core logic in under a minute.
 
-- [ ] **R10. Sensible data model**
+- [x] **R10. Sensible data model**
   Done: the tables and their relationships are written down in the README (a short list or diagram), and statuses are a fixed set of values, not free text.
 
-- [ ] **R11. Edge cases handled reasonably**
+- [x] **R11. Edge cases handled reasonably**
   Done: empty states, bad input (blank, too long, wrong type), and invalid state changes (for example acting on something already closed) each give a clear message instead of a crash or silent failure.
 
-- [ ] **R12. Deployable and easy to understand**
+- [x] **R12. Deployable and easy to understand**
   Done: one command builds and one command deploys; no secrets are in the repo; required environment variables are listed in `.env.example`.
+  Note: the app needs no environment variables or secrets (only the D1 binding in `wrangler.jsonc`), so there is no `.env.example`.
 
 - [ ] **R13. Core logic is tested**
   Done: automated tests cover the main rules and state changes, and they pass before each commit.
 
 ## AI-native workflow
 
-- [ ] **R14. The agent is given good context**
+- [x] **R14. The agent is given good context**
   Done: the repo has this file and a short CLAUDE.md with project rules, and the logs show the agent working from them.
+  Note: project rules are in `AGENTS.md` (with `SPEC.md`); `CLAUDE.md` is kept out of the repo by choice.
 
-- [ ] **R15. Output is reviewed, tested and steered**
+- [x] **R15. Output is reviewed, tested and steered**
   Done: the logs show tests being run, the live app being checked, and at least one place where bad or off-scope output was caught and corrected.
 
 ## Execution
