@@ -5,3 +5,7 @@ node_modules/
 .env
 .env.*
 .claude/worktrees/
+.wrangler/
+.dev.vars
+# Personal agent instructions; project rules for agents live in AGENTS.md
+CLAUDE.md

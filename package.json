@@ -1,0 +1,26 @@
+{
+  "name": "gp-booking",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --ip 127.0.0.1",
+    "deploy": "wrangler deploy",
+    "db:init:local": "wrangler d1 execute gp-booking --local --file=schema.sql",
+    "db:init:remote": "wrangler d1 execute gp-booking --remote --file=schema.sql",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.13.16"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261106.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.158.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261104.1": true
+  }
+}

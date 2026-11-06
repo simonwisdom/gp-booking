@@ -1,0 +1,12 @@
+{
+  "name": "gp-booking",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-11-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gp-booking",
+      "database_id": "9655257a-185b-4a2e-92e1-6126a82687f4"
+    }
+  ]
+}
