@@ -62,7 +62,8 @@ CREATE TABLE offer_slots (
 CREATE TABLE messages (
   id INTEGER PRIMARY KEY,
   request_id INTEGER NOT NULL REFERENCES requests(id),
-  to_phone TEXT NOT NULL,
+  phone TEXT NOT NULL, -- the patient's mobile
+  direction TEXT NOT NULL DEFAULT 'out' CHECK (direction IN ('out', 'in')), -- out = practice to patient
   body TEXT NOT NULL,
   created_at TEXT NOT NULL
 );

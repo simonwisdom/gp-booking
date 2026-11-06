@@ -99,8 +99,12 @@ table.t th{font-weight:700}
 .phone .bar a{position:absolute;left:1rem;top:1.2rem;font-size:.9rem}
 .thread{padding:1rem .8rem 1.4rem;display:flex;flex-direction:column;gap:.5rem;font-size:16px}
 .thread time{display:block;text-align:center;color:#6f777b;font-size:12px;margin:.6rem 0 .1rem}
-.bubble{align-self:flex-start;max-width:85%;background:#e9e9eb;padding:.55rem .8rem;border-radius:18px 18px 18px 4px;overflow-wrap:anywhere}
+.bubble{align-self:flex-start;max-width:85%;background:#e9e9eb;padding:.55rem .8rem;border-radius:18px 18px 18px 4px;overflow-wrap:anywhere;white-space:pre-line}
 .bubble a{color:#0b5cad}
+.bubble.patient{align-self:flex-end;background:#1d70b8;color:#fff;border-radius:18px 18px 4px 18px}
+.compose{display:flex;gap:.5rem;padding:.6rem .8rem;border-top:1px solid #d8dde0;background:#f7f7f8}
+.compose input{flex:1;max-width:none;border-radius:18px;border:1px solid #b1b4b6;padding:.45rem .8rem}
+.compose button{margin:0;border-radius:18px;padding:.45rem 1rem}
 .avatar{width:44px;height:44px;border-radius:50%;background:#0b4f4a;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
 .convos{list-style:none;margin:0;padding:0;background:#fff;border:1px solid #b1b4b6;max-width:640px}
 .convos a{display:flex;gap:.8rem;align-items:center;padding:.8rem 1rem;border-bottom:1px solid #e5e6e7;text-decoration:none;color:#0b0c0c}
@@ -289,7 +293,7 @@ export function PatientStatus(props: {
       {req.status === 'offered' && offer?.status === 'pending' && (
         <form method="post" action={`/r/${req.token}/accept`}>
           <h1>Choose an appointment time</h1>
-          <p>We're holding these for you until <strong>{formatWhen(offer.expires_at)}</strong>. Tap one to book it.</p>
+          <p>We're holding these for you until <strong>{formatWhen(offer.expires_at)}</strong>. Tap one to book it, or reply to our text with its number.</p>
           {offer.slots.map((s) => (
             <button class="choice" name="slot_id" value={String(s.id)}>
               <b>{formatWhen(s.starts_at)}</b>{s.clinician} · {s.duration_min} minutes
@@ -520,7 +524,7 @@ const linkify = (body: string) =>
 /** Conversations, one per phone number, newest first. `messages` arrive newest first. */
 export function Outbox(props: { messages: MessageRow[] }) {
   const threads = new Map<string, MessageRow[]>()
-  for (const m of props.messages) threads.set(m.to_phone, [...(threads.get(m.to_phone) ?? []), m])
+  for (const m of props.messages) threads.set(m.phone, [...(threads.get(m.phone) ?? []), m])
   return (
     <Layout title="Texts" section="texts">
       <h1>Texts</h1>
@@ -545,7 +549,7 @@ export function Outbox(props: { messages: MessageRow[] }) {
 
 /** One phone's thread, drawn as the patient's Messages app would show it. `messages` arrive newest first. */
 export function Thread(props: { phone: string; messages: MessageRow[] }) {
-  const msgs = [...props.messages].reverse()
+  const msgs = [...props.messages].sort((a, b) => a.id - b.id) // saved order = order sent
   return (
     <Layout title={`Texts to ${props.phone}`} section="texts">
       <a class="back" href="/outbox">All texts</a>
@@ -561,11 +565,19 @@ export function Thread(props: { phone: string; messages: MessageRow[] }) {
             <>
               {(i === 0 || new Date(m.created_at).getTime() - new Date(msgs[i - 1].created_at).getTime() > 15 * 60_000) &&
                 <time datetime={m.created_at}>{formatWhen(m.created_at)}</time>}
-              <div class="bubble">{linkify(m.body)}</div>
+              <div class={m.direction === 'in' ? 'bubble patient' : 'bubble'} id={i === msgs.length - 1 ? 'latest' : undefined}>
+                {m.direction === 'in' && <span class="skip">Patient replied: </span>}{linkify(m.body)}
+              </div>
             </>
           ))}
         </div>
+        <form class="compose" method="post" action={`/outbox/${encodeURIComponent(props.phone)}/reply`}>
+          <label class="skip" for="reply">Reply as the patient</label>
+          <input type="text" id="reply" name="body" maxlength={300} placeholder="Reply as the patient, e.g. 1" autocomplete="off" />
+          <button>Send</button>
+        </form>
       </div>
+      <p class="muted" style="text-align:center;margin-top:1rem">Demo: type here as if you were the patient replying from their phone. No mobile data needed.</p>
     </Layout>
   )
 }

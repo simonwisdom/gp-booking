@@ -22,14 +22,15 @@ Subscription - based on number of doctors and/or number of appointments, or a fl
 
 - **Patient:** asks for an appointment, ticks the mornings and afternoons they're free, and gets a personal link to pick a time.
 - **Clinic:** sees a queue with urgent requests first, confirms urgent or routine, and texts up to 3 matching slots. Those slots are held for the patient.
-- **If the patient doesn't reply,** the offer expires (2 hours if urgent, 24 if routine). The slots are freed and the request goes back in the queue. It is never cancelled.
+- **No mobile data?** The text lists the times by number. The patient replies "1", "2" or "3" to book.
+- **If the patient doesn't reply,** the offer ends after 2 hours if urgent or 24 if routine, or earlier if an offered slot is about to start. The slots are freed and the request goes back in the queue. It is never cancelled.
 - **If nothing fits,** the clinic asks for more times and the patient adds them from their link.
 - The clinic's calendar is sample data. Texts aren't really sent: they appear under **Texts**. There's no login.
 
 ## Try it (2 minutes)
 
 1. **Clinic** → *Mark Evans* → **Urgent** → **Text these times**.
-2. **Texts** → open his link → tap a time. You're booked, and **Calendar** shows the slot taken.
+2. **Texts** → *Mark Evans* → type **1** in the reply box. You're booked by text, and **Calendar** shows the slot taken. (Or tap the link and pick on the web.)
 3. **Clinic** → *Jo Lee* → **Routine** → send → **Demo: end this offer now**. She's back in the queue as "No reply".
 4. **Patient** → make your own request. **Reset demo** starts over.
 

@@ -2,7 +2,7 @@
 // and every statement re-checks the current state in its WHERE clause, so a stale page
 // or a double click can't hold or book a slot twice.
 
-import { type DayHalf, type NewRequest, type Urgency, formatWhen, offerExpiry, suggestUrgency } from './logic'
+import { type DayHalf, type NewRequest, type Urgency, formatWhen, offerExpiry, offerText, parseReply, suggestUrgency } from './logic'
 
 export const PRACTICE = 'Riverside Surgery'
 
@@ -18,7 +18,8 @@ export type SlotRow = {
 }
 export type OfferRow = { id: number; request_id: number; created_at: string; expires_at: string; status: string }
 export type MessageRow = {
-  id: number; request_id: number; to_phone: string; body: string; created_at: string; token: string; patient_name: string
+  id: number; request_id: number; phone: string; direction: 'out' | 'in'; body: string; created_at: string
+  token: string; patient_name: string
 }
 
 // Requests the clinic still has to act on.
@@ -106,7 +107,7 @@ export async function expireOffers(db: D1Database, now: Date) {
 
 function message(db: D1Database, requestId: number, body: string, now: Date, guardSql = '1', ...guardArgs: unknown[]) {
   return db.prepare(
-    `INSERT INTO messages (request_id, to_phone, body, created_at)
+    `INSERT INTO messages (request_id, phone, body, created_at)
      SELECT id, phone, ?, ? FROM requests WHERE id = ? AND ${guardSql}`,
   ).bind(body, iso(now), requestId, ...guardArgs)
 }
@@ -124,7 +125,7 @@ export async function createRequest(db: D1Database, v: NewRequest, now: Date, ba
     ...v.availability.map((a) =>
       db.prepare(`INSERT INTO availability (request_id, day, half) VALUES (${reqId}, ?, ?)`).bind(token, a.day, a.half)),
     db.prepare(
-      `INSERT INTO messages (request_id, to_phone, body, created_at) SELECT id, phone, ?, ? FROM requests WHERE token = ?`,
+      `INSERT INTO messages (request_id, phone, body, created_at) SELECT id, phone, ?, ? FROM requests WHERE token = ?`,
     ).bind(
       `${PRACTICE}: we've got your appointment request. We'll text you times to choose from, no need to call us. ` +
       `Track it here: ${baseUrl}/r/${token}`, iso(now), token),
@@ -143,10 +144,13 @@ export async function setUrgency(db: D1Database, id: number, urgency: Urgency) {
  * Offer slots to a triaged request and hold them. All-or-nothing: if the request has left the queue
  * or any slot is no longer open, nothing changes and this returns false.
  */
-export async function sendOffer(db: D1Database, req: RequestRow, slotIds: number[], now: Date, baseUrl: string) {
-  if (!req.urgency || slotIds.length === 0) return false
+export async function sendOffer(db: D1Database, req: RequestRow, slots: SlotRow[], now: Date, baseUrl: string) {
+  if (!req.urgency || slots.length === 0) return false
+  // Sorted so the numbers in the text match the order on the patient's page (latestOffer sorts by time).
+  const sorted = [...slots].sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+  const slotIds = sorted.map((s) => s.id)
   const ids = slotIds.map(() => '?').join(',')
-  const expires = offerExpiry(req.urgency, now)
+  const expires = offerExpiry(req.urgency, now, sorted.map((s) => s.starts_at))
   const pending = `(SELECT id FROM offers WHERE request_id = ? AND status = 'pending')`
   const results = await db.batch([
     db.prepare(
@@ -164,8 +168,7 @@ export async function sendOffer(db: D1Database, req: RequestRow, slotIds: number
       `UPDATE slots SET status = 'held', request_id = ?
        WHERE status = 'open' AND id IN (SELECT slot_id FROM offer_slots WHERE offer_id = ${pending})`,
     ).bind(req.id, req.id),
-    message(db, req.id,
-      `${PRACTICE}: please pick a time for your appointment by ${formatWhen(iso(expires))}: ${baseUrl}/r/${req.token}`,
+    message(db, req.id, offerText(PRACTICE, sorted, expires, `${baseUrl}/r/${req.token}`),
       now, `status IN ${QUEUE_STATES} AND EXISTS ${pending}`, req.id),
     db.prepare(`UPDATE requests SET status = 'offered' WHERE id = ? AND EXISTS ${pending}`).bind(req.id, req.id),
   ])
@@ -179,9 +182,9 @@ export async function acceptOffer(db: D1Database, req: RequestRow, slotId: numbe
   const slot = await db.prepare(`${SLOT_SELECT} WHERE s.id = ?`).bind(slotId).first<SlotRow>()
   const results = await db.batch([
     db.prepare(
-      `UPDATE slots SET status = 'booked' WHERE id = ? AND status = 'held' AND request_id = ?
+      `UPDATE slots SET status = 'booked' WHERE id = ? AND status = 'held' AND request_id = ? AND starts_at > ?
        AND id IN (SELECT slot_id FROM offer_slots WHERE offer_id = ${live})`,
-    ).bind(slotId, req.id, req.id, iso(now)),
+    ).bind(slotId, req.id, iso(now), req.id, iso(now)),
     db.prepare(`UPDATE slots SET status = 'open', request_id = NULL WHERE status = 'held' AND request_id = ? AND ${justBooked}`)
       .bind(req.id, slotId, req.id),
     db.prepare(`UPDATE offers SET status = 'accepted' WHERE request_id = ? AND status = 'pending' AND ${justBooked}`)
@@ -193,6 +196,43 @@ export async function acceptOffer(db: D1Database, req: RequestRow, slotId: numbe
       .bind(req.id, slotId, req.id),
   ])
   return results[0].meta.changes === 1
+}
+
+/**
+ * A patient replies by SMS (simulated). Logs the reply, then either books the chosen option
+ * (acceptOffer sends the confirmation) or texts back why it couldn't.
+ * Returns false if no request uses this phone number.
+ */
+export async function handleReply(db: D1Database, phone: string, body: string, now: Date, baseUrl: string) {
+  const req = await db.prepare('SELECT * FROM requests WHERE phone = ? ORDER BY id DESC LIMIT 1').bind(phone).first<RequestRow>()
+  if (!req) return false
+  await db.prepare(`INSERT INTO messages (request_id, phone, direction, body, created_at) VALUES (?, ?, 'in', ?, ?)`)
+    .bind(req.id, phone, body, iso(now)).run()
+  const reply = (text: string) => message(db, req.id, text, now).run()
+
+  if (req.status === 'offered') {
+    const offer = await latestOffer(db, req.id)
+    const choice = offer?.status === 'pending' ? parseReply(body, offer.slots.length) : null
+    if (offer?.status === 'pending' && choice === null) {
+      const n = offer.slots.length
+      await reply(`${PRACTICE}: sorry, we didn't understand. Reply with just the number${n > 1 ? `, 1 to ${n}` : ' 1'}, or choose here: ${baseUrl}/r/${req.token}`)
+      return true
+    }
+    if (offer && choice !== null && (await acceptOffer(db, req, offer.slots[choice - 1].id, now))) return true
+    await reply(`${PRACTICE}: sorry, that time is no longer available. We'll text you new times soon.`)
+    return true
+  }
+  if (req.status === 'booked') {
+    const slot = await bookedSlotFor(db, req.id)
+    await reply(`${PRACTICE}: you're already booked${slot ? ` with ${slot.clinician} on ${formatWhen(slot.starts_at)}` : ''}.`)
+    return true
+  }
+  if (req.status === 'no_reply') {
+    await reply(`${PRACTICE}: sorry, that offer has ended and the times were released. Your request is not cancelled: we'll text you new times.`)
+    return true
+  }
+  await reply(`${PRACTICE}: thanks. There's nothing to choose right now. We'll text you when we have times for you.`)
+  return true
 }
 
 /** No slot fits: ask the patient for more times. */

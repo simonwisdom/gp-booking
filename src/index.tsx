@@ -59,9 +59,18 @@ app.post('/demo/reset', async (c) => {
 app.get('/outbox', async (c) => c.html(<Outbox messages={await db.listMessages(c.env.DB)} />))
 app.get('/outbox/:phone', async (c) => {
   const phone = c.req.param('phone')
-  const messages = (await db.listMessages(c.env.DB)).filter((m) => m.to_phone === phone)
+  const messages = (await db.listMessages(c.env.DB)).filter((m) => m.phone === phone)
   if (messages.length === 0) return c.html(<NotFound />, 404)
   return c.html(<Thread phone={phone} messages={messages} />)
+})
+// Simulated inbound SMS: the patient replies from their phone.
+app.post('/outbox/:phone/reply', async (c) => {
+  const phone = c.req.param('phone')
+  const body = String((await form(c)).body ?? '').trim().slice(0, 300)
+  if (!body) return c.redirect(`/outbox/${encodeURIComponent(phone)}`, 303)
+  const ok = await db.handleReply(c.env.DB, phone, body, now(), baseUrl(c))
+  if (!ok) return c.html(<NotFound />, 404)
+  return c.redirect(`/outbox/${encodeURIComponent(phone)}#latest`, 303)
 })
 
 // ---------- patient ----------
@@ -89,7 +98,10 @@ app.post('/r/:token/accept', async (c) => {
   if (!req) return c.html(<NotFound />, 404)
   const [slotId] = ids((await form(c)).slot_id)
   const ok = slotId !== undefined && (await db.acceptOffer(c.env.DB, req, slotId, now()))
-  return c.redirect(`/r/${req.token}?msg=${ok ? 'booked' : 'gone'}`, 303)
+  if (ok) return c.redirect(`/r/${req.token}?msg=booked`, 303)
+  // Already booked (double tap, second tab, or booked by text): just show the booking, no error.
+  const latest = await db.getRequest(c.env.DB, req.id)
+  return c.redirect(`/r/${req.token}${latest?.status === 'booked' ? '' : '?msg=gone'}`, 303)
 })
 
 app.post('/r/:token/times', async (c) => {
@@ -152,7 +164,7 @@ app.post('/clinic/requests/:id/offer', async (c) => {
   const valid = picked.every((id) => matches.some((m) => m.id === id))
   if (picked.length < 1 || picked.length > MAX_OFFER_SLOTS) return c.redirect(back(req.id, 'pick_slots'), 303)
   if (!valid) return c.redirect(back(req.id, 'offer_failed'), 303)
-  const ok = await db.sendOffer(c.env.DB, req, picked, now(), baseUrl(c))
+  const ok = await db.sendOffer(c.env.DB, req, matches.filter((m) => picked.includes(m.id)), now(), baseUrl(c))
   return c.redirect(back(req.id, ok ? 'offered' : 'offer_failed'), 303)
 })
 

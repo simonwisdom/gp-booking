@@ -1,7 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import {
-  halfOf, isExpired, londonToUtc, matchSlots, nextDays, offerExpiry, suggestUrgency, validateRequest,
+  halfOf, isExpired, londonToUtc, matchSlots, nextDays, offerExpiry, offerText, parseReply, suggestUrgency, validateRequest,
 } from './logic'
+
+describe('reply by text', () => {
+  it('reads a bare option number', () => {
+    expect(parseReply('2', 3)).toBe(2)
+    expect(parseReply(' 1. ', 3)).toBe(1)
+    expect(parseReply('Option 3', 3)).toBe(3)
+  })
+  it('rejects numbers out of range and anything ambiguous', () => {
+    expect(parseReply('4', 3)).toBeNull()
+    expect(parseReply('0', 3)).toBeNull()
+    expect(parseReply("can't do 1 or 2", 3)).toBeNull()
+    expect(parseReply('yes', 3)).toBeNull()
+    expect(parseReply('', 3)).toBeNull()
+  })
+  it('numbers the offered times in the text, in the given order', () => {
+    const text = offerText('Riverside Surgery', [
+      { starts_at: '2026-11-09T09:00:00Z', clinician: 'Dr A' },
+      { starts_at: '2026-11-09T14:00:00Z', clinician: 'Dr B' },
+    ], new Date('2026-11-07T10:00:00Z'), 'https://x/r/t')
+    expect(text).toContain('1) Mon 9 Nov, 09:00 with Dr A')
+    expect(text).toContain('2) Mon 9 Nov, 14:00 with Dr B')
+    expect(text).toContain('Reply 1 or 2')
+    expect(text).toContain('https://x/r/t')
+  })
+})
 
 // Fri 6 Nov 2026, 10:00 London (GMT, so also 10:00 UTC).
 const now = new Date('2026-11-06T10:00:00Z')
@@ -56,9 +81,15 @@ describe('matchSlots', () => {
 })
 
 describe('offers', () => {
+  const later = ['2026-11-09T09:00:00Z']
   it('expires urgent offers after 2h and routine after 24h', () => {
-    expect(offerExpiry('urgent', now).toISOString()).toBe('2026-11-06T12:00:00.000Z')
-    expect(offerExpiry('routine', now).toISOString()).toBe('2026-11-07T10:00:00.000Z')
+    expect(offerExpiry('urgent', now, later).toISOString()).toBe('2026-11-06T12:00:00.000Z')
+    expect(offerExpiry('routine', now, later).toISOString()).toBe('2026-11-07T10:00:00.000Z')
+  })
+  it('ends the hold when the earliest offered slot starts, if that is sooner', () => {
+    const soon = ['2026-11-07T09:00:00Z', '2026-11-06T10:30:00Z']
+    expect(offerExpiry('routine', now, soon).toISOString()).toBe('2026-11-06T10:30:00.000Z')
+    expect(offerExpiry('urgent', now, soon).toISOString()).toBe('2026-11-06T10:30:00.000Z')
   })
   it('treats the expiry instant as expired', () => {
     expect(isExpired('2026-11-06T10:00:00.000Z', now)).toBe(true)

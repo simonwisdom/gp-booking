@@ -70,8 +70,29 @@ export function matchSlots<S extends { starts_at: string }>(
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
 }
 
-export function offerExpiry(urgency: Urgency, now: Date): Date {
-  return new Date(now.getTime() + OFFER_HOURS[urgency] * 3_600_000)
+/** When a hold ends: after 2h/24h, or when the earliest offered slot starts, whichever is sooner. */
+export function offerExpiry(urgency: Urgency, now: Date, slotStarts: string[]): Date {
+  const byHours = now.getTime() + OFFER_HOURS[urgency] * 3_600_000
+  return new Date(Math.min(byHours, ...slotStarts.map((s) => new Date(s).getTime())))
+}
+
+/** The offer SMS: numbered times so patients without mobile data can reply with a number. */
+export function offerText(
+  practice: string, slots: { starts_at: string; clinician: string }[], expires: Date, link: string,
+): string {
+  const options = slots.map((s, i) => `${i + 1}) ${formatWhen(s.starts_at)} with ${s.clinician}`).join('\n')
+  const numbers = slots.map((_, i) => String(i + 1))
+  const replyWith = numbers.length > 1 ? `${numbers.slice(0, -1).join(', ')} or ${numbers[numbers.length - 1]}` : numbers[0]
+  return `${practice}: we can see you at:\n${options}\n` +
+    `Reply ${replyWith} by ${formatWhen(expires.toISOString())} to book, or choose here: ${link}`
+}
+
+/** A patient's SMS reply to an offer: just the option number ("2", "2.", "Option 2"), else null. */
+export function parseReply(text: string, optionCount: number): number | null {
+  const m = text.trim().match(/^(?:option\s*)?(\d+)[.!)]?$/i)
+  if (!m) return null
+  const n = Number(m[1])
+  return n >= 1 && n <= optionCount ? n : null
 }
 
 export function isExpired(expiresAt: string, now: Date): boolean {

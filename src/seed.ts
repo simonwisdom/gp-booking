@@ -58,6 +58,6 @@ export async function resetDemo(db: D1Database, now: Date, baseUrl: string) {
   const ana = await getRequestByToken(db, token)
   if (ana && (await setUrgency(db, ana.id, 'routine'))) {
     const slots = matchSlots(await openFutureSlots(db, now), days.slice(1, 4).map((d) => ({ day: d, half: 'am' as const })), 'routine', now)
-    await sendOffer(db, { ...ana, urgency: 'routine' }, slots.slice(0, 3).map((s) => s.id), minutesAgo(30), baseUrl)
+    await sendOffer(db, { ...ana, urgency: 'routine' }, slots.slice(0, 3), minutesAgo(30), baseUrl)
   }
 }
