@@ -1,0 +1,6 @@
+# Brief from Algosoup, kept out of the public repo
+*.pdf
+.DS_Store
+node_modules/
+.env
+.env.*
