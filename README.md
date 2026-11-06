@@ -4,18 +4,7 @@
 
 Patients say when they're free as part of their appointment request. The clinic triages it and texts 2–3 times that fit. The patient taps one, or replies with its number. Nobody has to phone anybody.
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/patient-offer.png" alt="Patient chooses an appointment time from the times held for them"></td>
-    <td width="50%"><img src="docs/screenshots/text-thread.png" alt="Text thread: the practice offers numbered times and the patient replies with a number to book"></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/screenshots/clinic-queue.png" alt="Clinic queue: requests needing action, waiting for the patient, and booked without a phone call"></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/screenshots/calendar.png" alt="Week calendar with one column per clinician, showing free, held and booked slots"></td>
-  </tr>
-</table>
+![Patient picks a time; text thread with numbered times; clinic queue; week calendar with free, held and booked slots](docs/screenshots/overview.png)
 
 **Why I built this?**
 
