@@ -17,7 +17,9 @@ export type SlotRow = {
   starts_at: string; duration_min: number; status: 'open' | 'held' | 'booked'; request_id: number | null
 }
 export type OfferRow = { id: number; request_id: number; created_at: string; expires_at: string; status: string }
-export type MessageRow = { id: number; request_id: number; to_phone: string; body: string; created_at: string; token: string }
+export type MessageRow = {
+  id: number; request_id: number; to_phone: string; body: string; created_at: string; token: string; patient_name: string
+}
 
 // Requests the clinic still has to act on.
 const QUEUE_STATES = "('new', 'no_reply')"
@@ -77,7 +79,8 @@ export async function latestOffer(db: D1Database, requestId: number) {
 
 export async function listMessages(db: D1Database) {
   const r = await db.prepare(
-    `SELECT m.*, r.token FROM messages m JOIN requests r ON r.id = m.request_id ORDER BY m.created_at DESC, m.id DESC LIMIT 100`,
+    `SELECT m.*, r.token, r.patient_name FROM messages m JOIN requests r ON r.id = m.request_id
+     ORDER BY m.created_at DESC, m.id DESC LIMIT 500`,
   ).all<MessageRow>()
   return r.results
 }

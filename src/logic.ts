@@ -110,23 +110,26 @@ export function parseAvailability(raw: string | string[] | undefined, allowedDay
   return out
 }
 
+export type FieldError = { field: 'name' | 'phone' | 'reason' | 'slot'; text: string }
+
 /** Validate the patient form. `allowedDays` limits availability to the next 7 days. */
 export function validateRequest(
   form: Record<string, string | string[]>, allowedDays: string[],
-): { ok: true; value: NewRequest } | { ok: false; errors: string[] } {
+): { ok: true; value: NewRequest } | { ok: false; errors: FieldError[] } {
   const str = (k: string) => (typeof form[k] === 'string' ? (form[k] as string).trim() : '')
-  const errors: string[] = []
+  const errors: FieldError[] = []
+  const err = (field: FieldError['field'], text: string) => errors.push({ field, text })
   const name = str('name')
   const phone = str('phone').replace(/[\s-]/g, '')
   const reason = str('reason')
-  if (!name) errors.push('Please enter your name.')
-  else if (name.length > 80) errors.push('Name must be 80 characters or fewer.')
-  if (!/^(\+447|07)\d{9}$/.test(phone)) errors.push('Please enter a UK mobile number, like 07700 900123.')
-  if (!reason) errors.push('Please say briefly what the appointment is about.')
-  else if (reason.length > 500) errors.push('Please keep the reason to 500 characters or fewer.')
+  if (!name) err('name', 'Enter your name')
+  else if (name.length > 80) err('name', 'Name must be 80 characters or fewer')
+  if (!/^(\+447|07)\d{9}$/.test(phone)) err('phone', 'Enter a UK mobile number, like 07700 900123')
+  if (!reason) err('reason', 'Say briefly what the appointment is about')
+  else if (reason.length > 500) err('reason', 'Reason must be 500 characters or fewer')
 
   const availability = parseAvailability(form.slot, allowedDays)
-  if (availability.length === 0) errors.push('Please tick at least one morning or afternoon when you could come in.')
+  if (availability.length === 0) err('slot', 'Tick at least one morning or afternoon when you could come in')
 
   if (errors.length) return { ok: false, errors }
   return {

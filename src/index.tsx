@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import * as db from './db'
 import { MAX_OFFER_SLOTS, matchSlots, nextDays, parseAvailability, validateRequest } from './logic'
 import { resetDemo } from './seed'
-import { Calendar, ClinicQueue, ClinicRequest, Home, NotFound, Outbox, PatientStatus, RequestForm } from './views'
+import { Calendar, ClinicQueue, ClinicRequest, Home, NotFound, Outbox, PatientStatus, RequestForm, Thread } from './views'
 
 type Env = { Bindings: { DB: D1Database } }
 type Form = Record<string, string | string[]>
@@ -57,6 +57,12 @@ app.post('/demo/reset', async (c) => {
 })
 
 app.get('/outbox', async (c) => c.html(<Outbox messages={await db.listMessages(c.env.DB)} />))
+app.get('/outbox/:phone', async (c) => {
+  const phone = c.req.param('phone')
+  const messages = (await db.listMessages(c.env.DB)).filter((m) => m.to_phone === phone)
+  if (messages.length === 0) return c.html(<NotFound />, 404)
+  return c.html(<Thread phone={phone} messages={messages} />)
+})
 
 // ---------- patient ----------
 
@@ -103,8 +109,10 @@ app.get('/clinic', async (c) => {
   return c.html(<ClinicQueue requests={requests} bookings={bookings} msg={flash(c)} />)
 })
 
-app.get('/clinic/calendar', async (c) =>
-  c.html(<Calendar days={nextDays(now(), DAYS_AHEAD)} slots={await db.allSlots(c.env.DB)} />))
+app.get('/clinic/calendar', async (c) => {
+  const [slots, requests] = await Promise.all([db.allSlots(c.env.DB), db.listRequests(c.env.DB)])
+  return c.html(<Calendar days={nextDays(now(), DAYS_AHEAD)} slots={slots} requests={requests} now={now()} />)
+})
 
 const requestOr404 = async (c: Context<Env>) => {
   const id = Number(c.req.param('id'))

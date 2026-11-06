@@ -30,7 +30,7 @@ Subscription - based on number of doctors and/or number of appointments, or a fl
 
 1. **Clinic** → *Mark Evans* → **Urgent** → **Text these times**.
 2. **Texts** → open his link → tap a time. You're booked, and **Calendar** shows the slot taken.
-3. **Clinic** → *Jo Lee* → **Routine** → send → **Demo: expire this offer now**. She's back in the queue as "No reply".
+3. **Clinic** → *Jo Lee* → **Routine** → send → **Demo: end this offer now**. She's back in the queue as "No reply".
 4. **Patient** → make your own request. **Reset demo** starts over.
 
 ## How it's built
