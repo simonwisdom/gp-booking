@@ -1,63 +1,48 @@
 # No-call GP booking
 
-**Live:** https://gp-booking.simonwisdom.workers.dev
+**Live demo:** https://gp-booking.simonwisdom.workers.dev
 
-Booking a GP appointment often means asking online, then waiting for the practice to phone back. If you're at work and miss the calls from an unknown number, you get a text threatening to cancel, and you end up on hold for 20 minutes.
+Patients say when they're free as part of their appointment request. The clinic triages it and texts 2–3 times that fit. The patient taps one. Nobody has to phone anybody.
 
-This app removes the phone call. The patient says **when they're free** as part of the request. The practice triages it, sees which open slots fit, and texts 2–3 times. The patient taps one and they're booked.
+**Why I built this?**
 
-- **User:** GP reception and triage staff, and their patients.
-- **Today:** online request, then call-back tag.
-- **Who pays:** the practice, per month. It saves receptionists' call-back time and cuts missed-call cancellations.
+This product idea is based on a recent painful experience I had booking an appointment at my local GP. I entered my details through a web app on my phone, which was fine. What then happened was I had to wait until the next day when they tried to phone me repeatedly while I was at work and I couldn't answer my phone and I missed their calls. I didn't know who the phone was from. It happened the next day, they called about five times and I wasn't able to answer until they sent me a text message saying they were trying to call and they were going to cancel my appointment. I then had to call back and wait for about 20 minutes on hold until I got to someone to schedule an appointment.
 
-## Try it
+**Who pays?**
+This would be licenced to medical clinics, either through the NHS or directly to private clinics.
 
-The demo has both sides and no login. Texts aren't really sent: they appear under **Texts**, signed with the practice name.
+**Pricing**
+Subscription - based on number of doctors and/or number of appointments, or a flat monthly fee.
 
-1. **Clinic** → open *Mark Evans* (urgent, suggested from his red-flag answer) → confirm **Urgent** → the app lists open slots in his free half-days within 24 hours → **Text these times**.
-2. **Texts** → open the patient link → tap a time → booked. The other held slots are freed (see **Calendar**).
-3. Open *Jo Lee* → triage → offer → **Demo: expire this offer now**. The slots are released and she's back in the queue as "No reply". She's never cancelled.
-4. **Patient** → make your own request and follow it through.
-5. **Reset demo** at any time.
+**Scope**
+- Clinic side: set availability, triage patient requests, book and manage appointments
+- Patient side: request an appointment, set availability, book and manage appointments
 
-## How it works
+## In this demo
 
-```
-Patient request + half-days free ─▶ Clinic queue (urgent first)
-  ─▶ Receptionist confirms urgent/routine
-  ─▶ App matches open slots to the free half-days (urgent: next 24h only)
-  ─▶ Offer: up to 3 slots held, expires in 2h (urgent) / 24h (routine)
-       ├─ patient taps one ─▶ booked, other holds released
-       ├─ no reply ─▶ holds released, back in queue as "No reply"
-       └─ nothing fits ─▶ "Ask for more times" ─▶ patient adds half-days ─▶ back in queue
-```
+- **Patient:** asks for an appointment, ticks the mornings and afternoons they're free, and gets a personal link to pick a time.
+- **Clinic:** sees a queue with urgent requests first, confirms urgent or routine, and texts up to 3 matching slots. Those slots are held for the patient.
+- **If the patient doesn't reply,** the offer expires (2 hours if urgent, 24 if routine). The slots are freed and the request goes back in the queue. It is never cancelled.
+- **If nothing fits,** the clinic asks for more times and the patient adds them from their link.
+- The clinic's calendar is sample data. Texts aren't really sent: they appear under **Texts**. There's no login.
 
-**Data model (D1 / SQLite):** `clinicians`, `slots` (open / held / booked, linked to a request), `requests` (status new / offered / booked / needs_times / no_reply; suggested and confirmed urgency), `availability` (request × day × am/pm), `offers` (pending / accepted / expired, with `expires_at`) and `offer_slots`, `messages` (the text outbox). See `schema.sql`.
+## Try it (2 minutes)
 
-**Things that can't go wrong twice:** each state change is one D1 batch (a transaction), and each statement re-checks the current state in its `WHERE` clause. A double click, an out-of-date clinic page, or a patient tapping an expired offer gets a clear message and changes nothing. Overdue offers are expired at the start of every request, so no scheduled job is needed.
+1. **Clinic** → *Mark Evans* → **Urgent** → **Text these times**.
+2. **Texts** → open his link → tap a time. You're booked, and **Calendar** shows the slot taken.
+3. **Clinic** → *Jo Lee* → **Routine** → send → **Demo: expire this offer now**. She's back in the queue as "No reply".
+4. **Patient** → make your own request. **Reset demo** starts over.
 
-## Code
+## How it's built
 
-| File | What's in it |
-|------|--------------|
-| `src/logic.ts` | Pure rules: urgency suggestion, half-day matching, expiry, London time, form validation. Tested in `src/logic.test.ts`. |
-| `src/db.ts` | Every query and state change. |
-| `src/seed.ts` | Demo practice: 3 clinicians, a week of weekday slots, 3 requests in different states. |
-| `src/views.tsx`, `src/index.tsx` | Server-rendered pages (Hono JSX) and routes. No client JavaScript. |
+Cloudflare Workers, D1 (SQLite), Hono, TypeScript. Pages are rendered on the server, with no front-end framework.
 
-Stack: Cloudflare Workers, D1, Hono, TypeScript, Vitest.
-
-## Run locally
+- `src/logic.ts`: the rules (urgency, matching slots to free times, expiry), tested in `src/logic.test.ts`.
+- `src/db.ts`: every database change. Each one is a single transaction that re-checks the current state, so double clicks or out-of-date pages can't double-book.
+- `schema.sql`: the data model: clinicians, slots, requests, availability, offers, texts.
 
 ```bash
-npm install
-npm run db:init:local
-npm run dev          # http://127.0.0.1:8787
+npm install && npm run db:init:local
+npm run dev    # http://127.0.0.1:8787
 npm test
 ```
-
-Deploy: create a D1 database and put its id in `wrangler.jsonc`, then `npm run db:init:remote && npm run deploy`. The app fills in its sample data on first visit.
-
-## Left out on purpose
-
-Login, real SMS, editing the calendar, more than one practice, matching clinician type to the reason (for example a nurse for blood tests), patient cancel or reschedule, reminders, AI.
